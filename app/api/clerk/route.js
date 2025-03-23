@@ -1,23 +1,18 @@
 import { Webhook } from "svix";
 import connectDB from "@/config/db";
 import User from "@/models/User";
-import { NextRequest } from "next/server";
 
-export async function POST(req){
+export async function POST(req) {
     const wh = new Webhook(process.env.SIGNING_SECRET);
-    const headerPayload = await headers()
-    const svixHeaders = {
-        "svix-id": headerPayload.get("svix-id"),
-        "svix-signature": headerPayload.get("svix-signature"),
-    };
 
-    // get the payload and verify it
+    const svixHeaders = {
+        "svix-id": req.headers.get("svix-id"),
+        "svix-signature": req.headers.get("svix-signature"),
+    };
 
     const payload = await req.json();
     const body = JSON.stringify(payload);
-    const {data, type} = wh.verify(body, svixHeaders);
-    
-    // prepare the user data to be saved in the database
+    const { data, type } = wh.verify(body, svixHeaders);
 
     const userData = {
         _id: data.id,
@@ -28,18 +23,19 @@ export async function POST(req){
 
     await connectDB();
 
-    switch(type){
+    switch (type) {
         case "user.created":
             await User.create(userData);
             break;
         case "user.updated":
-            await User.findByIdAndUpate(data.id, userData);
+            await User.findByIdAndUpdate(data.id, userData);
             break;
         case "user.deleted":
             await User.findByIdAndDelete(data.id);
             break;
-        default:    
+        default:
             break;
     }
-    return NextRequest.json({message: "Event received"});
+
+    return Response.json({ message: "Event received" });
 }
